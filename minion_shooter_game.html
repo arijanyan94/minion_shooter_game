@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Game </title>
+</head>
+
+<body>
+    <canvas id="canvas" width="1100" height="700"></canvas>
+</body>
+
+</html>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.style.border = "1px solid black";
+
+let mouse = null;
+let textRect = { xPos: 0, yPos: canvas.height - 100, width: canvas.width, height: 100 }
+let audio = document.getElementById("audio");
+
+let sound = new Audio();
+let background = new Image();
+let minion = new Image();
+let apple = new Image();
+let crossbow = new Image();
+let arrow = new Image();
+let lifeArrow = new Image();
+let bang = new Image();
+let appleSmall = new Image();
+
+function setInitialValues() {
+    return {
+        crossbowPosition: canvas.width / 2 - 150,
+        animationSpeed: 2,
+        isAnimationOn: false,
+        isTitleCreated: false,
+        isGameStoped: false,
+        applePositionMin: 488,
+        applePositionMax: 527,
+        lifeCount: 5,
+        hitCount: 0,
+        winCount: 5,
+        arrowPosition: 0
+    }
+}
+
+let options = setInitialValues();
+
+let loadedImagesCount = 0;
+let imageCount = 6;
+
+let showBang = false;
+let isArrowFired = false;
+
+let firedArrow = {};
+
+initImageSources();
+initSound();
+
+function drawImages() {
+    ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(minion, 483, 300, 75, 85);
+    ctx.drawImage(apple, 491, 266, 35, 35);
+    ctx.drawImage(crossbow, options.crossbowPosition, 520, 300, 300);
+    if (showBang) {
+        ctx.drawImage(bang, 406, 161, 120, 120);
+    }
+
+
+    let ptrn = ctx.createPattern(lifeArrow, 'repeat');
+    ctx.fillStyle = ptrn;
+    ctx.fillRect(canvas.width - 140, 40, options.lifeCount * 20, 40)
+    let applePtrn = ctx.createPattern(appleSmall, 'repeat');
+    ctx.fillStyle = applePtrn;
+    ctx.fillRect(140, 48, options.hitCount * 20, 24)
+
+
+    if (!!isArrowFired) {
+        ctx.drawImage(arrow, firedArrow.startX, firedArrow.startY, firedArrow.width, firedArrow.height);
+    } else {
+        ctx.drawImage(arrow, options.crossbowPosition + 122, 536, 56, 112);
+    }
+    mouse = { x: 0, y: 0 };
+    document.onmousedown = ClickOnText;
+    if (!options.isTitleCreated) {
+        createTitle("Click To Start");
+    }
+    document.onmousedown = ClickOnText;
+}
+
+let animate = function() {
+    if (!options.isGameStoped) {
+        options.isAnimationOn = true;
+        requestAnimationFrame(animate);
+        drawImages();
+
+
+        if (options.crossbowPosition > 850) {
+            options.animationSpeed = -options.animationSpeed;
+        } else if (options.crossbowPosition < -50) {
+            options.animationSpeed = 2;
+        };
+        options.crossbowPosition += options.animationSpeed * (options.hitCount + 1);
+
+        if (!!firedArrow) {
+            firedArrow.height /= 1.09;
+            if (Date.now() - firedArrow.startTime >= 500 && Date.now() - firedArrow.startTime <= 1000) {
+                firedArrow.startY += 5;
+            } else if (Date.now() - firedArrow.startTime <= 500) {
+                firedArrow.startY -= 5;
+            } else {
+                isArrowFired = false;
+            }
+        } else {
+            firedArrow.startX = options.crossbowPosition + 122;
+        }
+    }
+};
+
+function ClickOnText(event) {
+    if (!!event.layerX || event.layerX == 0) {
+        mouse.x = event.layerX - canvas.offsetLeft;
+        mouse.y = event.layerY - canvas.offsetTop;
+    } else if (!!event.offsetX || event.offsetX == 0) {
+        mouse.x = event.offsetX - canvas.offsetLeft;
+        mouse.y = event.offsetY - canvas.offsetTop;
+    }
+
+
+    if (IsTextClicked()) {
+        if (!options.isAnimationOn) {
+            animate();
+        }
+    } else {
+        fireArrow();
+        if (firedArrow.startX + 27 >= options.applePositionMin &&
+            firedArrow.startX + 27 <= options.applePositionMax) {
+            options.hitCount++;
+            setTimeout(function() {
+                showBang = true;
+                setTimeout(function() {
+                    isGameFinished();
+                    showBang = false;
+                }, 300);
+            }, 500)
+        } else {
+            setTimeout(function() {
+                isGameFinished();
+            }, 1000)
+        }
+    }
+}
+
+function isGameFinished() {
+    if (options.lifeCount == 0 && options.hitCount != options.winCount) {
+        createTitle("Oops :) click here to replay")
+        stopGame();
+        setTimeout(function() {
+            options = setInitialValues();
+        }, 200)
+    } else if (options.lifeCount == 0 && options.hitCount == options.winCount) {
+        createTitle("Win :D click here to replay")
+        stopGame();
+        setTimeout(function() {
+            options = setInitialValues();
+        }, 200)
+    }
+}
+
+function IsTextClicked() {
+    if (mouse.x < textRect.xPos ||
+        mouse.x > (textRect.xPos + textRect.width) ||
+        mouse.y < textRect.yPos ||
+        mouse.y > (textRect.yPos + textRect.height)) {} else {
+        return true;
+    }
+    return false;
+}
+
+function createTitle(msg) {
+    options.isTitleCreated = true;
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillRect(textRect.xPos, textRect.yPos, textRect.width, textRect.height);
+    ctx.font = "40px Arial";
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.fillText(msg, canvas.width / 2, canvas.height - 50);
+    ctx.stroke();
+}
+
+function stopGame() {
+    options.isGameStoped = true;
+}
+
+function fireArrow() {
+    if (!isArrowFired) {
+        options.lifeCount--;
+        if (sound && sound.readyToRock) {
+            sound.currentTime = 0;
+            sound.play();
+        }
+        firedArrow = {
+            startX: options.crossbowPosition + 122,
+            startY: canvas.height - 272,
+            height: 112,
+            width: 56,
+            startTime: new Date(),
+        }
+        isArrowFired = true;
+    } else {
+        return;
+    }
+}
+
+function initSound() {
+    sound.src = "./arrow-sound.wav";
+    sound.oncanplaythrough = function() {
+        sound.readyToRock = true;
+    };
+}
+
+function initImageSources() {
+    background.src = "./Images/background.jpg";
+    minion.src = "./Images/minion.png";
+    crossbow.src = "./Images/crossbow.png";
+    arrow.src = "./Images/arrows-drawing-feather-3.png";
+    lifeArrow.src = "./Images/arrows-drawing-feather-3-small.png";
+    bang.src = "./Images/bang.png";
+    apple.src = "./Images/apple.png";
+    appleSmall.src = "./Images/apple-small.png";
+
+    apple.onload = loadImage;
+    minion.onload = loadImage;
+    background.onload = loadImage;
+    crossbow.onload = loadImage;
+    arrow.onload = loadImage;
+    lifeArrow.onload = loadImage;
+}
+
+
+function loadImage() {
+    loadedImagesCount++;
+    if (loadedImagesCount == imageCount) {
+        setTimeout(function() {
+            drawImages();
+        })
+    }
+}
+</script>
